@@ -15,6 +15,8 @@
 # AccessControl.ZopeGuards contains a large set of wrappers for builtins.
 # DocumentTemplate.DT_UTil contains a few.
 
+import string
+
 from RestrictedPython import _compat
 
 
@@ -257,6 +259,13 @@ def guarded_delattr(object, name):
 safe_builtins['delattr'] = guarded_delattr
 
 
+# ``string.Formatter`` resolves ``{0.attr[key]}`` fields with plain
+# ``getattr``/``__getitem__`` and hands back live objects, bypassing the
+# guards. (CVE-2026-76825)
+_FORMATTER_UNSAFE_METHODS = frozenset(('format', 'get_field', 'get_value',
+                                       'vformat'))
+
+
 def safer_getattr(object, name, default=None, getattr=getattr):
     """Getattr implementation which prevents using format on string objects.
 
@@ -270,6 +279,14 @@ def safer_getattr(object, name, default=None, getattr=getattr):
             and issubclass(object, _compat.basestring))):
         raise NotImplementedError(
             'Using the string format* methods is not safe')
+    if object is string and name == 'Formatter':
+        raise NotImplementedError('string.Formatter is not safe')
+    if name in _FORMATTER_UNSAFE_METHODS and (
+            isinstance(object, string.Formatter) or
+            (isinstance(object, type) and
+             issubclass(object, string.Formatter))):
+        raise NotImplementedError(
+            'Using string.Formatter methods is not safe')
     if name.startswith('_'):
         raise AttributeError(
             '"{name}" is an invalid attribute name because it '

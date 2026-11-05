@@ -469,6 +469,12 @@ class RestrictingNodeTransformer(ast.NodeTransformer):
             self.check_name(node, node.args.vararg)
             self.check_name(node, node.args.kwarg)
         else:  # pragma: PY3
+            # Positional-only parameters (PEP 570, Python 3.8+) can shadow
+            # injected guard hooks such as ``_getattr_`` just like any other
+            # parameter kind. (CVE-2026-55830)
+            for arg in getattr(node.args, 'posonlyargs', ()):
+                self.check_name(node, arg.arg)
+
             for arg in node.args.args:
                 self.check_name(node, arg.arg)
 

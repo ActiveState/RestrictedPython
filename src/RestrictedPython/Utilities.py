@@ -29,7 +29,14 @@ class _AttributeDelegator:
         if attr in self.__excludes:
             raise NotImplementedError(
                 "{}.{} is not safe".format(self.__mod.__name__, attr))
-        return getattr(self.__mod, attr)
+        try:
+            return getattr(self.__mod, attr)
+        except AttributeError as e:
+            # Python 3.10+ sets ``AttributeError.obj`` to the object the
+            # lookup failed on, i.e. the real module. Do not leak it to
+            # restricted code. (CVE-2024-47532)
+            e.obj = self
+            raise
 
 
 utility_builtins['string'] = _AttributeDelegator(string, "Formatter")
