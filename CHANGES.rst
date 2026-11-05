@@ -1,6 +1,22 @@
 Changes
 =======
 
+5.4.post1 (2026-11-05)
+----------------------
+
+ActiveState security release (Python 2.7 and 3.5-3.10).
+
+- Do not leak the real module through ``AttributeError.obj`` (set on
+  Python 3.10+) when a lookup on the ``string`` utility module fails.
+  (CVE-2024-47532, GHSA-5rfv-66g4-jr8h; from 7.3)
+- Reject positional-only parameter names that would shadow guard hooks
+  such as ``_getattr_`` (Python 3.8+ only).
+  (CVE-2026-55830, GHSA-ffg3-p8fm-mjx2; from 8.3)
+- ``safer_getattr`` refuses ``string.Formatter`` and the ``format``,
+  ``vformat``, ``get_field`` and ``get_value`` methods of any Formatter,
+  which resolve fields without the guards.
+  (CVE-2026-76825, GHSA-hp3v-5vw7-fx9w; from 8.4)
+
 5.4 (2023-08-30)
 ----------------
 
