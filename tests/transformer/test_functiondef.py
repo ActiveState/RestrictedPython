@@ -1,6 +1,7 @@
 from RestrictedPython import compile_restricted_exec
 from RestrictedPython._compat import IS_PY2
 from RestrictedPython._compat import IS_PY3
+from RestrictedPython._compat import IS_PY38_OR_GREATER
 from RestrictedPython.Guards import guarded_unpack_sequence
 from tests.helper import restricted_exec
 
@@ -63,6 +64,52 @@ def test_RestrictingNodeTransformer__visit_FunctionDef__6():  # pragma: PY2
     # the error message twice. This is necessary as otherwise *_bad and
     # **_bad would be allowed.
     assert functiondef_err_msg in result.errors
+
+
+@pytest.mark.skipif(
+    not IS_PY38_OR_GREATER,
+    reason="Positional-only parameters are new in Python 3.8.")
+def test_positional_only_arg_with_underscore_is_rejected():
+    """It prevents positional-only arguments starting with `_`."""
+    result = compile_restricted_exec("def foo(_bad, /): pass")
+    assert result.errors == (functiondef_err_msg,)
+
+
+@pytest.mark.skipif(
+    not IS_PY38_OR_GREATER,
+    reason="Positional-only parameters are new in Python 3.8.")
+def test_positional_only_arg_with_default_underscore_is_rejected():
+    """It prevents positional-only arguments with an underscore default."""
+    result = compile_restricted_exec("def foo(_bad=1, /): pass")
+    assert result.errors == (functiondef_err_msg,)
+
+
+@pytest.mark.skipif(
+    not IS_PY38_OR_GREATER,
+    reason="Positional-only parameters are new in Python 3.8.")
+def test_positional_only_lambda_arg_with_underscore_is_rejected():
+    """It prevents positional-only lambda arguments starting with `_`."""
+    result = compile_restricted_exec("f = lambda _bad, /: None")
+    assert result.errors == (functiondef_err_msg,)
+
+
+POSONLY_GETATTR_SHADOW = """
+def f(o, _getattr_=lambda obj, name: 'shadowed', /):
+    return o.x
+"""
+
+
+@pytest.mark.skipif(
+    not IS_PY38_OR_GREATER,
+    reason="Positional-only parameters are new in Python 3.8.")
+def test_positional_only_arg_cannot_shadow_getattr_guard():
+    """GHSA-ffg3-p8fm-mjx2: a positional-only default cannot replace the
+    ``_getattr_`` guard."""
+    result = compile_restricted_exec(POSONLY_GETATTR_SHADOW)
+    assert result.code is None
+    assert result.errors == (
+        'Line 2: "_getattr_" is an invalid variable name because it '
+        'starts with "_"',)
 
 
 @pytest.mark.skipif(
