@@ -7,8 +7,46 @@ def test_string_in_utility_builtins():
     from RestrictedPython.Utilities import utility_builtins
 
     # we no longer provide access to ``string`` itself, only to
-    # a restricted view of it
-    assert utility_builtins['string'].__name__ == string.__name__
+    # a restricted view of it (``rstring``)
+    rstring = utility_builtins['string']
+    assert rstring.__name__ == string.__name__
+
+    # ensure it does not provide access to ``string`` via
+    # ``AttributeError.obj`` (CVE-2024-47532)
+    try:
+        rstring.unexisting_attribute
+    except AttributeError as e:
+        assert e.obj is rstring
+    else:  # pragma: no cover
+        raise AssertionError('AttributeError not raised')
+
+
+def test_string_AttributeError_obj_not_leaked_to_restricted_code():
+    """Restricted code cannot reach the real ``string`` module via
+    ``AttributeError.obj`` and from there ``string.Formatter``."""
+    from RestrictedPython.Guards import safe_builtins
+    from RestrictedPython.Utilities import utility_builtins
+    from tests.helper import restricted_exec
+
+    src = (
+        "leaked = None\n"
+        "try:\n"
+        "    string.unexisting_attribute\n"
+        "except AttributeError as e:\n"
+        "    leaked = e.obj\n"
+    )
+    def strict_getattr(obj, name):
+        # Like Zope's ``guarded_getattr``: raises instead of returning a
+        # default, so the ``AttributeError`` reaches restricted code.
+        assert not name.startswith('_')
+        return getattr(obj, name)
+
+    builtins = safe_builtins.copy()
+    builtins['_getattr_'] = strict_getattr
+    glb = {'__builtins__': builtins, 'string': utility_builtins['string']}
+    restricted_exec(src, glb)
+    assert glb['leaked'] is utility_builtins['string']
+    assert glb['leaked'] is not string
 
 
 def test_math_in_utility_builtins():
